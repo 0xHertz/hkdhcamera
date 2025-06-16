@@ -14,18 +14,18 @@ import time
 # 禁用SSL警告
 requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
 
-class DahuaVersionAdapter:
-    """大华设备版本适配器"""
+class HikVersionAdapter:
+    """海康设备版本适配器"""
     CONFIG_PROFILES = {
-        ('3.0', '4.0'): {
-            'api_path': '/cgi-bin/configManager.cgi?action=setConfig',
-            'sip_path': '/cgi-bin/sipManager.cgi?action=setConfig',
-            'reboot_path': '/cgi-bin/magicBox.cgi?action=reboot',
+        ('5.0', '6.0'): {
+            'api_path': '/ISAPI/System/Network/interfaces/1',
+            'sip_path': '/ISAPI/System/Network/SIP',
+            'reboot_path': '/ISAPI/System/reboot',
         },
-        ('2.0',): {
-            'api_path': '/cgi-bin/configManager.cgi?action=setConfig',
-            'sip_path': '/cgi-bin/sipManager.cgi?action=setConfig',
-            'reboot_path': '/cgi-bin/magicBox.cgi?action=reboot',
+        ('4.0',): {
+            'api_path': '/ISAPI/System/Network/interfaces/0',
+            'sip_path': '/ISAPI/System/Network/SIP',
+            'reboot_path': '/ISAPI/System/reboot',
         }
     }
 
@@ -39,16 +39,18 @@ class DahuaVersionAdapter:
                     return profile
         except Exception:
             pass
-        return cls.CONFIG_PROFILES[('3.0', '4.0')]  # 默认返回最新配置
+        return cls.CONFIG_PROFILES[('5.0', '6.0')]  # 默认返回最新配置
 
-class DahuaIPConfigurator:
+class GBConfigurator:
     def __init__(self, parent=None):
         self.parent = parent or tk.Tk()
         if isinstance(self.parent, tk.Tk):
-            self.parent.title("大华设备批量配置")
+            self.parent.title("海康设备批量配置")
         self.log_queue = queue.Queue()
+        self.enable_sip_config = False  # Boolean to control SIP configuration
         self.create_widgets()
         self.parent.after(100, self.process_log_queue)
+
 
     def update_sip_domain(self, event):
         """Update SIP server domain based on the first 10 characters of SIP server ID."""
@@ -56,18 +58,23 @@ class DahuaIPConfigurator:
         self.sip_server_domain_entry.delete(0, tk.END)
         self.sip_server_domain_entry.insert(0, sip_server_id[:10])
 
+    # def update_sip_user_id(self, event):
+    #     """Set SIP user ID to match the device ID."""
+    #     device_id = self.device_id_entry.get()
+    #     self.sip_user_id_entry.delete(0, tk.END)
+    #     self.sip_user_id_entry.insert(0, device_id)
+
     def create_widgets(self):
         """创建界面组件"""
         main_frame = ttk.Frame(self.parent)
         main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-        self.main_frame = main_frame
 
         # 左侧配置面板
         config_frame = ttk.Frame(main_frame)
         config_frame.pack(side=tk.LEFT, fill=tk.Y, padx=5)
 
         # 旧IP列表
-        old_ips_frame = ttk.LabelFrame(config_frame, text="旧IP列表（每行一个IP）")
+        old_ips_frame = ttk.LabelFrame(config_frame, text="改造后IP列表（每行一个IP）")
         old_ips_frame.pack(fill=tk.X, pady=5)
         self.old_ips_text = tk.Text(old_ips_frame, height=12, width=30)
         self.old_ips_text.pack(fill=tk.X)
@@ -83,26 +90,8 @@ class DahuaIPConfigurator:
         self.password_entry.grid(row=1, column=1, padx=5, sticky=tk.EW)
         auth_frame.columnconfigure(1, weight=1)
 
-        # 新IP配置
-        new_ip_frame = ttk.LabelFrame(config_frame, text="新IP配置")
-        new_ip_frame.pack(fill=tk.X, pady=5)
-        ttk.Label(new_ip_frame, text="起始IP:").grid(row=0, column=0, padx=5, sticky=tk.W)
-        self.start_ip_entry = ttk.Entry(new_ip_frame)
-        self.start_ip_entry.grid(row=0, column=1, padx=5, sticky=tk.EW)
-        ttk.Label(new_ip_frame, text="终止IP:").grid(row=0, column=2, padx=5, sticky=tk.W)
-        self.end_ip_entry = ttk.Entry(new_ip_frame)
-        self.end_ip_entry.grid(row=0, column=3, padx=5, sticky=tk.EW)
-        ttk.Label(new_ip_frame, text="子网掩码:").grid(row=1, column=0, padx=5, sticky=tk.W)
-        self.subnet_mask_entry = ttk.Entry(new_ip_frame)
-        self.subnet_mask_entry.grid(row=1, column=1, padx=5, sticky=tk.EW)
-        ttk.Label(new_ip_frame, text="网关:").grid(row=1, column=2, padx=5, sticky=tk.W)
-        self.gateway_entry = ttk.Entry(new_ip_frame)
-        self.gateway_entry.grid(row=1, column=3, padx=5, sticky=tk.EW)
-        new_ip_frame.columnconfigure(1, weight=1)
-        new_ip_frame.columnconfigure(3, weight=1)
-
         # 平台接入配置
-        platform_frame = ttk.LabelFrame(config_frame, text="平台接入配置 (GB28181) 不建议使用")
+        platform_frame = ttk.LabelFrame(config_frame, text="平台接入配置 (GB28181)")
         platform_frame.pack(fill=tk.X, pady=5)
         ttk.Label(platform_frame, text="SIP服务器IP:").grid(row=0, column=0, padx=5, sticky=tk.W)
         self.sip_server_ip_entry = ttk.Entry(platform_frame)
@@ -110,16 +99,16 @@ class DahuaIPConfigurator:
         self.sip_server_ip_entry.grid(row=0, column=1, padx=5, sticky=tk.EW)
         ttk.Label(platform_frame, text="SIP服务器端口:").grid(row=0, column=2, padx=5, sticky=tk.W)
         self.sip_server_port_entry = ttk.Entry(platform_frame)
-        self.sip_server_port_entry.insert(0, "3000")  # Default value
+        self.sip_server_port_entry.insert(0, "5060")  # Default value
         self.sip_server_port_entry.grid(row=0, column=3, padx=5, sticky=tk.EW)
         ttk.Label(platform_frame, text="SIP服务器ID:").grid(row=1, column=0, padx=5, sticky=tk.W)
         self.sip_server_id_entry = ttk.Entry(platform_frame)
-        self.sip_server_id_entry.insert(0, "51010100002000000001")  # Default value
+        self.sip_server_id_entry.insert(0, "90010900132000000001")  # Default value
         self.sip_server_id_entry.grid(row=1, column=1, padx=5, sticky=tk.EW)
         self.sip_server_id_entry.bind("<KeyRelease>", self.update_sip_domain)
         ttk.Label(platform_frame, text="SIP服务器域:").grid(row=1, column=2, padx=5, sticky=tk.W)
         self.sip_server_domain_entry = ttk.Entry(platform_frame)
-        self.sip_server_domain_entry.insert(0, "5101010000")
+        self.sip_server_domain_entry.insert(0, "9001090013")
         self.sip_server_domain_entry.grid(row=1, column=3, padx=5, sticky=tk.EW)
         ttk.Label(platform_frame, text="设备ID起始位:").grid(row=2, column=0, padx=5, sticky=tk.W)
         self.device_id_entry = ttk.Entry(platform_frame)
@@ -129,7 +118,8 @@ class DahuaIPConfigurator:
         # self.sip_user_id_entry = ttk.Entry(platform_frame)
         # self.sip_user_id_entry.grid(row=2, column=3, padx=5, sticky=tk.EW)
         ttk.Label(platform_frame, text="用户密码:").grid(row=3, column=0, padx=5, sticky=tk.W)
-        self.user_password_entry = ttk.Entry(platform_frame, show="*")
+        self.user_password_entry = ttk.Entry(platform_frame)
+        self.user_password_entry.insert(0, "Sp.123456")
         self.user_password_entry.grid(row=3, column=1, padx=5, sticky=tk.EW)
         ttk.Label(platform_frame, text="本地端口:").grid(row=3, column=2, padx=5, sticky=tk.W)
         self.local_port_entry = ttk.Entry(platform_frame)
@@ -150,7 +140,6 @@ class DahuaIPConfigurator:
         platform_frame.columnconfigure(1, weight=1)
         platform_frame.columnconfigure(3, weight=1)
 
-
         # 操作按钮
         btn_frame = ttk.Frame(config_frame)
         btn_frame.pack(fill=tk.X, pady=10)
@@ -159,9 +148,6 @@ class DahuaIPConfigurator:
 
         self.reboot_var = tk.BooleanVar(value=True)
         ttk.Checkbutton(btn_frame, text='配置后重启', variable=self.reboot_var).pack(side=tk.LEFT, padx=10)
-
-        self.sip_config_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(btn_frame, text='启用SIP配置', variable=self.sip_config_var).pack(side=tk.LEFT, padx=10)
 
         # 右侧日志面板
         log_frame = ttk.LabelFrame(main_frame, text="操作日志")
@@ -191,56 +177,27 @@ class DahuaIPConfigurator:
         old_ips = self.old_ips_text.get("1.0", tk.END).strip().splitlines()
         username = self.username_entry.get().strip()
         password = self.password_entry.get().strip()
-        start_ip = self.start_ip_entry.get().strip()
-        end_ip = self.end_ip_entry.get().strip()
-        subnet_mask = self.subnet_mask_entry.get().strip()
-        gateway = self.gateway_entry.get().strip()
 
         # 基础验证
-        if not all([old_ips, username, password, start_ip, end_ip, subnet_mask, gateway]):
+        if not all([old_ips, username, password]):
             messagebox.showerror("错误", "所有字段必须填写！")
-            return None
-
-        # IP格式验证
-        try:
-            start_ip_obj = ipaddress.IPv4Address(start_ip)
-            end_ip_obj = ipaddress.IPv4Address(end_ip)
-            gateway_obj = ipaddress.IPv4Address(gateway)
-            ipaddress.IPv4Network(f"0.0.0.0/{subnet_mask}", strict=False)
-        except ValueError as e:
-            messagebox.showerror("格式错误", f"IP地址格式无效: {str(e)}")
-            return None
-
-        # 生成新IP范围
-        new_ips = []
-        current_ip = start_ip_obj
-        while current_ip <= end_ip_obj:
-            new_ips.append(str(current_ip))
-            current_ip = ipaddress.IPv4Address(int(current_ip) + 1)
-
-        if len(old_ips) > len(new_ips):
-            messagebox.showerror("范围错误", "新IP范围不足以覆盖所有旧IP")
-            return None
-
-        # 验证网关有效性
-        try:
-            network = ipaddress.IPv4Network(f"{new_ips[0]}/{subnet_mask}", strict=False)
-            if gateway_obj not in network:
-                messagebox.showerror("网络错误", "网关地址不在新IP所属子网内")
-                return None
-        except ValueError as e:
-            messagebox.showerror("子网错误", f"IP/掩码组合无效: {str(e)}")
             return None
 
         # 验证平台接入配置
         sip_server_ip = self.sip_server_ip_entry.get().strip()
         sip_server_port = self.sip_server_port_entry.get().strip()
         device_id = self.device_id_entry.get().strip()
+        if len(device_id) != 20:
+            self.log(f"设备ID无效: {device_id} (必须为20位)")
+            return None
 
         # 生成新的device_id
         new_device_ids = []
         base_device_id = device_id
-        if self.sip_config_var.get():
+        if len(base_device_id) != 20:
+            self.log(f"设备ID无效: {base_device_id} (必须为20位)")
+            return None
+        if self.enable_sip_config:
             fixed_prefix = base_device_id[:13]
             current_suffix = int(base_device_id[13:])
             while len(new_device_ids) < len(old_ips):
@@ -259,7 +216,7 @@ class DahuaIPConfigurator:
         sip_server_domain = self.sip_server_domain_entry.get().strip()
         user_password = self.user_password_entry.get().strip()
 
-        if self.sip_config_var.get():
+        if self.enable_sip_config:
             if not all([sip_server_ip, sip_server_port, device_id, local_port, register_valid, heartbeat_interval, heartbeat_timeout, sip_server_domain, user_password, self.sip_server_id_entry.get().strip(), ]):
                 messagebox.showerror("错误", "平台接入配置字段必须填写！")
                 return None
@@ -289,11 +246,8 @@ class DahuaIPConfigurator:
 
         return {
             'old_ips': old_ips,
-            'new_ips': new_ips,
             'username': username,
             'password': password,
-            'subnet_mask': subnet_mask,
-            'gateway': gateway,
             'sip_server_ip': sip_server_ip,
             'sip_server_port': sip_server_port,
             'device_id': device_id,
@@ -317,75 +271,187 @@ class DahuaIPConfigurator:
                 daemon=True
             ).start()
 
-    def get_current_config(self, ip, auth):
-        """获取设备当前网络配置"""
-        url = f"http://{ip}/cgi-bin/configManager.cgi?action=getConfig&name=Network.eth0"
+    def configure_devices(self, params):
+        """设备配置主逻辑"""
         try:
-            response = requests.get(
-                url,
-                auth=HTTPDigestAuth(*auth),
-                timeout=10,
-                verify=False
-            )
-            if response.status_code == 200:
-                return response.text  # 返回当前配置
-            else:
-                self.log(f"获取当前配置失败，状态码: {response.status_code}")
+            for idx, (old_ip, new_device_id) in enumerate(zip(params['old_ips'], params['new_device_ids'])):
+                self.log(f"\n=== 处理设备 {idx+1}/{len(params['old_ips'])} ===")
+                self.log(f"处理设备: {old_ip}")
+
+                auth=(params['username'], params['password'])
+
+                # 获取设备版本信息
+                version_info = self.get_device_version(old_ip, params)
+                if not version_info or version_info['device'] == '未知':
+                    self.log(f"无法获取设备版本信息，跳过此设备-{old_ip}")
+                    continue
+
+                # 获取配置模板
+                profile = HikVersionAdapter.get_config_profile(version_info['firmware'])
+                self.log(f"设备型号: {version_info['device']}")
+                self.log(f"固件版本: {version_info['firmware']}")
+                self.log(f"使用接口: {profile['api_path']}")
+
+
+                # 配置平台接入，发送配置请求
+                self.log("\n开始配置平台接入...")
+
+                # 配置网络设置，发送配置请求
+                self.configure_platform_access(
+                    old_ip=old_ip,
+                    new_device_id=new_device_id,
+                    url=f"http://{old_ip}{profile['sip_path']}",
+                    auth=auth,
+                    profile=profile,
+                    params=params
+                )
+                if self.reboot_var.get():
+                    self.reboot_device(old_ip, auth, profile)
+
+            self.log("\n所有设备配置完成！")
+
         except Exception as e:
-            self.log(f"获取当前配置异常: {str(e)}")
+            self.log(f"全局异常: {traceback.format_exc()}")
+        finally:
+            self.execute_btn.config(state=tk.NORMAL)
+
+    def get_device_version(self, ip, params):
+        version_urls = [
+            f"http://{ip}/ISAPI/System/version",
+            f"https://{ip}/ISAPI/System/version",
+            f"http://{ip}/ISAPI/System/deviceInfo"
+        ]
+
+        for url in version_urls:
+            try:
+                response = requests.get(
+                    url,
+                    auth=HTTPDigestAuth(params['username'], params['password']),
+                    timeout=10,
+                    verify=False
+                )
+                if response.status_code == 200:
+                    return self.parse_version_xml(response.text)
+            except Exception:
+                continue
         return None
 
-    def parse_current_config(self, config_text):
-        """解析设备当前配置"""
-        config = {}
+    def parse_version_xml(self, xml_str):
+        """增强版XML解析"""
         try:
-            lines = config_text.splitlines()
-            for line in lines:
-                if "=" in line:
-                    key, value = line.split("=", 1)
-                    config[key.strip()] = value.strip()
+            root = ET.fromstring(xml_str)
+            namespace = self.extract_namespace(xml_str)
+            ns = {'ns': namespace} if namespace else {}
+
+            device = root.find('.//ns:deviceType', namespaces=ns)
+            firmware = root.find('.//ns:firmwareVersion', namespaces=ns)
+            if device is not None and firmware is not None:
+                return {
+                    'device': device.text,
+                    'firmware': firmware.text.split(' ')[0]
+                }
+
+            if '<deviceName>' in xml_str:
+                return {
+                    'device': 'Legacy Device',
+                    'firmware': 'V3.0'
+                }
         except Exception as e:
-            self.log(f"解析配置失败: {str(e)}")
-        return config
+            self.log(f"XML解析失败: {str(e)}")
+        return {'device': '未知', 'firmware': '0.0'}
 
-    def merge_config(self, current_config, new_ip, subnet_mask, gateway):
-        """合并新旧配置"""
-        current_config["table.Network.eth0.IPAddress"] = new_ip
-        current_config["table.Network.eth0.SubnetMask"] = subnet_mask
-        current_config["table.Network.eth0.DefaultGateway"] = gateway
-        # 移除不需要的配置项
-        current_config.pop("table.Network.eth0.EnableDhcpReservedIP", None)
-        current_config.pop("table.Network.eth0.Type", None)
-        current_config.pop("table.Network.eth0.DnsAutoGet", None)
-        return current_config
-
-    def send_updated_config(self, ip, auth, updated_config, profile):
-        """发送更新后的配置"""
-        url = f"http://{ip}{profile['api_path']}"
-        config_data = "&".join([f"{key.replace('table.', '')}={value}" for key, value in updated_config.items()])
-        url = f"{url}&{config_data}"
-        self.log(f"更新后的请求URL:\n{url}")
+    def extract_namespace(self, xml_str):
+        """动态提取XML中的命名空间"""
         try:
-            self.log(f"发送更新请求到设备 {ip}...")
-            response = requests.post(
+            root = ET.fromstring(xml_str)
+            if root.tag.startswith("{"):
+                return root.tag.split("}")[0].strip("{")
+        except Exception:
+            pass
+        return None
+
+
+    def configure_platform_access(self, old_ip, url, new_device_id, auth, profile, params):
+        """配置平台接入 (GB28181)"""
+        try:
+            self.log(f"配置设备 {old_ip} 的平台接入...")
+            self.log(f"获取设备 {old_ip} 的现有平台配置...")
+            response = requests.get(
                 url,
                 auth=HTTPDigestAuth(*auth),
                 timeout=15,
                 verify=False
             )
-            self.log(f"响应状态码: {response.status_code}")
-            if response.status_code == 200 and "OK" in response.text :
-                self.log(f"✓ 成功配置设备 {ip}")
-                return True
+            if response.status_code != 200:
+                self.log(f"无法获取设备 {old_ip} 的现有配置，状态码: {response.status_code}")
+                return
+
+            existing_config = ET.fromstring(response.text)
+            namespace = self.extract_namespace(response.text)
+            ns = {'ns': namespace} if namespace else {}
+
+            local_port = existing_config.find('.//ns:localPort', namespaces=ns)
+            enabled = existing_config.find('.//ns:GB28181/ns:enabled', namespaces=ns)
+            registrar = existing_config.find('.//ns:GB28181/ns:registrar', namespaces=ns)
+            registrarPort = existing_config.find('.//ns:GB28181/ns:registrarPort', namespaces=ns)
+            serverId = existing_config.find('.//ns:GB28181/ns:serverId', namespaces=ns)
+            serverDomain = existing_config.find('.//ns:GB28181/ns:serverDomain', namespaces=ns)
+            authID = existing_config.find('.//ns:GB28181/ns:authID', namespaces=ns)
+            expires = existing_config.find('.//ns:GB28181/ns:expires', namespaces=ns)
+            heartbeatTime = existing_config.find('.//ns:GB28181/ns:heartbeatTime', namespaces=ns)
+            heartbeatCount = existing_config.find('.//ns:GB28181/ns:heartbeatCount', namespaces=ns)
+
+            if local_port is not None:
+                local_port.text = params['local_port']
+            if enabled is not None:
+                enabled.text = 'true'
+            if registrar is not None:
+                registrar.text = params['sip_server_ip']
+            if registrarPort is not None:
+                registrarPort.text = params['sip_server_port']
+            if serverId is not None:
+                serverId.text = params['sip_server_id']
+            if serverDomain is not None:
+                serverDomain.text = params['sip_server_domain']
+            if authID is not None:
+                authID.text = new_device_id
+            if expires is not None:
+                expires.text = params['register_valid']
+            if heartbeatTime is not None:
+                heartbeatTime.text = params['heartbeat_interval']
+            if heartbeatCount is not None:
+                heartbeatCount.text = params['heartbeat_timeout']
+
+            # 移除命名空间前缀
+            for elem in existing_config.iter():
+                if '}' in elem.tag:
+                    elem.tag = elem.tag.split('}', 1)[1]  # 移除命名空间
+                elem.attrib = {k.split('}', 1)[-1]: v for k, v in elem.attrib.items()}  # 移除属性中的命名空间
+
+            updated_config = ET.tostring(existing_config, encoding='utf-8', method='xml').decode('utf-8')
+            self.log(f"更新后的SIP配置XML:\n{updated_config}")
+
+            headers = {
+                "Content-Type": "application/xml; charset=UTF-8",
+                "User-Agent": "HikConfigTool/3.0"
+            }
+
+            self.log(f"发送SIP更新请求到设备 {old_ip}...")
+            response = requests.put(
+                url,
+                auth=HTTPDigestAuth(*auth),
+                headers=headers,
+                data=updated_config.encode('utf-8'),
+                timeout=15,
+                verify=False
+            )
+            if response.status_code == 200:
+                self.log(f"✓ 成功配置平台接入: {old_ip}")
             else:
-                self.log(f"✗ 错误响应内容:\n{response.text}")
-                return False
-        except requests.exceptions.RequestException as e:
-            self.log(f"网络请求异常: {str(e)}")
-            return False
+                self.log(f"✗ 配置平台接入失败: {old_ip}, 状态码: {response.status_code}")
+                self.log(f"✗ 配置平台接入失败: {old_ip}, 信息: {response.text}")
         except Exception as e:
-            self.log(f"未知异常: {traceback.format_exc()}")
-            return False
+            self.log(f"配置平台接入异常: {traceback.format_exc()}")
 
     def reboot_device(self, ip, auth, profile):
         """执行设备重启"""
@@ -395,6 +461,8 @@ class DahuaIPConfigurator:
             response = requests.put(
                 reboot_url,
                 auth=HTTPDigestAuth(*auth),
+                data='<reboot></reboot>',
+                verify=False,
                 timeout=10
             )
 
@@ -405,126 +473,7 @@ class DahuaIPConfigurator:
         except Exception as e:
             self.log(f"重启异常：{str(e)}")
 
-    def configure_devices(self, params):
-        """设备配置主逻辑"""
-        try:
-            for idx, (old_ip, new_ip, new_device_id) in enumerate(zip(params['old_ips'], params['new_ips'], params['new_device_ids'])):
-                self.log(f"\n=== 处理设备 {idx+1}/{len(params['old_ips'])} ===")
-                self.log(f"旧IP: {old_ip} → 新IP: {new_ip}")
-
-                # 获取设备版本信息
-                version_info = self.get_device_version(old_ip, params)
-                if not version_info or version_info['device'] == '未知':
-                    self.log(f"无法获取设备版本信息，跳过此设备-{old_ip}")
-                    continue
-
-                # 获取配置模板
-                profile = DahuaVersionAdapter.get_config_profile(version_info['firmware'])
-                self.log(f"设备型号: {version_info['device']}")
-                self.log(f"固件版本: {version_info['firmware']}")
-                self.log(f"使用接口: {profile['api_path']}")
-
-                # 获取当前配置
-                current_config_text = self.get_current_config(old_ip, (params['username'], params['password']))
-                if not current_config_text:
-                    self.log(f"无法获取当前配置，跳过此设备-{old_ip}")
-                    continue
-
-                # 解析当前配置
-                current_config = self.parse_current_config(current_config_text)
-
-                # 合并新旧配置
-                updated_config = self.merge_config(current_config, new_ip, params['subnet_mask'], params['gateway'])
-
-                # 发送更新后的配置
-                network_ok = self.send_updated_config(old_ip, (params['username'], params['password']), updated_config, profile)
-
-                # 配置SIP
-                # 配置平台接入，发送配置请求
-                if self.sip_config_var.get():
-                    self.log("\n开始配置平台接入...")
-                    # 获取配置模板
-                    profile = DahuaVersionAdapter.get_config_profile(version_info['firmware'])
-                    self.log(f"设备型号: {version_info['device']}")
-                    self.log(f"固件版本: {version_info['firmware']}")
-                    self.log(f"使用接口: {profile['sip_path']}")
-
-                    # 配置网络设置，发送配置请求
-                    self.configure_platform_access(
-                        old_ip=old_ip,
-                        new_ip=new_ip,
-                        new_device_id=new_device_id,
-                        url=f"http://{old_ip}{profile['sip_path']}",
-                        auth=(params['username'], params['password']),
-                        profile=profile,
-                        params=params,
-                        network_ok=network_ok
-                    )
-                if self.reboot_var.get() and network_ok and not self.sip_config_var.get():
-                    self.log("正在重启设备...")
-                    self.reboot_device(old_ip, (params['username'], params['password']), profile)
-
-
-            self.log("\n所有设备处理完成！")
-        except Exception as e:
-            self.log(f"全局异常: {traceback.format_exc()}")
-        finally:
-            self.execute_btn.config(state=tk.NORMAL)
-    def configure_platform_access(self, old_ip, new_ip, url, new_device_id, auth, profile, params,network_ok):
-        """配置平台接入 (GB28181)"""
-        try:
-            # Step 2: Prepare updated configuration
-            updated_config = {
-                "table.SIPServerIP": new_ip,
-                "table.SIPServerPort": params.get("port", "5060"),
-                "table.SIPDomain": params.get("domain", ""),
-                "table.DeviceID": new_device_id,
-                "table.AuthUser": auth[0],
-                "table.AuthPassword": auth[1],
-            }
-
-            # Step 3: Send configuration to the device
-            sip_ok = self.send_updated_config(old_ip, auth, updated_config, profile)
-
-            self.log("Platform access configured successfully.")
-            if network_ok and sip_ok and self.reboot_var.get():
-                self.log("正在重启设备...")
-                self.reboot_device(old_ip, (params['username'], params['password']), profile)
-        except Exception as e:
-            self.log(f"Error configuring platform access: {str(e)}")
-            return False
-
-    def get_device_version(self, ip, params):
-        version_url = f"http://{ip}/cgi-bin/magicBox.cgi?action=getSoftwareVersion"
-
-        try:
-            response = requests.get(
-                version_url,
-                auth=HTTPDigestAuth(params['username'], params['password']),
-                timeout=10,
-                verify=False
-            )
-            if response.status_code == 200:
-                return self.parse_version_response(response.text)
-        except Exception:
-            pass
-        return None
-
-    def parse_version_response(self, response_text):
-        """解析版本信息"""
-        try:
-            lines = response_text.splitlines()
-            for line in lines:
-                if "version" in line.lower():
-                    return {
-                        'device': 'Dahua Device',
-                        'firmware': line.split('=')[-1].strip()
-                    }
-        except Exception as e:
-            self.log(f"版本解析失败: {str(e)}")
-        return {'device': '未知', 'firmware': '0.0'}
-
 if __name__ == "__main__":
     root = tk.Tk()
-    app = DahuaIPConfigurator(root)
+    app = GBConfigurator(root)
     root.mainloop()

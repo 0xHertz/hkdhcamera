@@ -4,6 +4,7 @@ from dhcamera import DahuaIPConfigurator
 from dhchannel import DahuaChannelManager
 from channl import HikvisionChannelManager
 from camera import HikvisionIPConfigurator
+from gbconfig import GBConfigurator
 
 class CombinedApp(tk.Tk):
     def __init__(self):
@@ -35,6 +36,11 @@ class CombinedApp(tk.Tk):
         dahua_channel_frame = ttk.Frame(notebook)
         notebook.add(dahua_channel_frame, text="大华设备通道管理")
         DahuaChannelManager(dahua_channel_frame)
+
+        # GB Configurator Tab
+        gb_config_frame = ttk.Frame(notebook)
+        notebook.add(gb_config_frame, text="海康录像机国标配置")
+        GBConfigurator(gb_config_frame)
 
 if __name__ == "__main__":
     app = CombinedApp()
