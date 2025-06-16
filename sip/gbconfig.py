@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk, messagebox, scrolledtext
+from tkinter import ttk, messagebox, scrolledtext, simpledialog
 import ipaddress
 import requests
 from requests.auth import HTTPDigestAuth
@@ -74,10 +74,10 @@ class GBConfigurator:
         config_frame.pack(side=tk.LEFT, fill=tk.Y, padx=5)
 
         # 旧IP列表
-        old_ips_frame = ttk.LabelFrame(config_frame, text="改造后IP列表（每行一个IP）")
-        old_ips_frame.pack(fill=tk.X, pady=5)
-        self.old_ips_text = tk.Text(old_ips_frame, height=12, width=30)
-        self.old_ips_text.pack(fill=tk.X)
+        lxj_ips_frame = ttk.LabelFrame(config_frame, text="改造后IP列表（每行一个IP）")
+        lxj_ips_frame.pack(fill=tk.X, pady=5)
+        self.lxj_ips_text = tk.Text(lxj_ips_frame, height=12, width=30)
+        self.lxj_ips_text.pack(fill=tk.X)
 
         # 认证信息
         auth_frame = ttk.LabelFrame(config_frame, text="认证信息")
@@ -174,12 +174,12 @@ class GBConfigurator:
 
     def validate_inputs(self):
         """验证输入有效性"""
-        old_ips = self.old_ips_text.get("1.0", tk.END).strip().splitlines()
+        lxj_ips = self.lxj_ips_text.get("1.0", tk.END).strip().splitlines()
         username = self.username_entry.get().strip()
         password = self.password_entry.get().strip()
 
         # 基础验证
-        if not all([old_ips, username, password]):
+        if not all([lxj_ips, username, password]):
             messagebox.showerror("错误", "所有字段必须填写！")
             return None
 
@@ -200,12 +200,12 @@ class GBConfigurator:
         if self.enable_sip_config:
             fixed_prefix = base_device_id[:13]
             current_suffix = int(base_device_id[13:])
-            while len(new_device_ids) < len(old_ips):
+            while len(new_device_ids) < len(lxj_ips):
                 new_device_id = f"{fixed_prefix}{current_suffix:07d}"
                 new_device_ids.append(new_device_id)
                 current_suffix += 1
         else:
-            new_device_ids = [base_device_id] * len(old_ips)
+            new_device_ids = [base_device_id] * len(lxj_ips)
 
 
         local_port = self.local_port_entry.get().strip()
@@ -245,7 +245,7 @@ class GBConfigurator:
                 return None
 
         return {
-            'old_ips': old_ips,
+            'lxj_ips': lxj_ips,
             'username': username,
             'password': password,
             'sip_server_ip': sip_server_ip,
@@ -274,16 +274,16 @@ class GBConfigurator:
     def configure_devices(self, params):
         """设备配置主逻辑"""
         try:
-            for idx, (old_ip, new_device_id) in enumerate(zip(params['old_ips'], params['new_device_ids'])):
-                self.log(f"\n=== 处理设备 {idx+1}/{len(params['old_ips'])} ===")
-                self.log(f"处理设备: {old_ip}")
+            for idx, (lxj_ip, new_device_id) in enumerate(zip(params['lxj_ips'], params['new_device_ids'])):
+                self.log(f"\n=== 处理设备 {idx+1}/{len(params['lxj_ips'])} ===")
+                self.log(f"处理设备: {lxj_ip}")
 
                 auth=(params['username'], params['password'])
 
                 # 获取设备版本信息
-                version_info = self.get_device_version(old_ip, params)
+                version_info = self.get_device_version(lxj_ip, params)
                 if not version_info or version_info['device'] == '未知':
-                    self.log(f"无法获取设备版本信息，跳过此设备-{old_ip}")
+                    self.log(f"无法获取设备版本信息，跳过此设备-{lxj_ip}")
                     continue
 
                 # 获取配置模板
@@ -298,15 +298,15 @@ class GBConfigurator:
 
                 # 配置网络设置，发送配置请求
                 self.configure_platform_access(
-                    old_ip=old_ip,
+                    lxj_ip=lxj_ip,
                     new_device_id=new_device_id,
-                    url=f"http://{old_ip}{profile['sip_path']}",
+                    url=f"http://{lxj_ip}{profile['sip_path']}",
                     auth=auth,
                     profile=profile,
                     params=params
                 )
                 if self.reboot_var.get():
-                    self.reboot_device(old_ip, auth, profile)
+                    self.reboot_device(lxj_ip, auth, profile)
 
             self.log("\n所有设备配置完成！")
 
@@ -370,12 +370,126 @@ class GBConfigurator:
             pass
         return None
 
+    def _fetch_channels(self,ip,auth):
+        try:
 
-    def configure_platform_access(self, old_ip, url, new_device_id, auth, profile, params):
+            url = f"http://{ip}/ISAPI/ContentMgmt/InputProxy/channels"
+            channels = []  # 用于存储通道信息
+
+            response = requests.get(url, auth=HTTPDigestAuth(*auth), timeout=10)
+
+            if response.status_code == 200:
+                self.log("API Response:{response.text}")  # 打印返回的 XML 数据
+                namespaces = {'ns': 'http://www.hikvision.com/ver20/XMLSchema'}
+                root = ET.fromstring(response.content)
+
+                for channel in root.findall('.//ns:InputProxyChannel', namespaces):
+                    channel_id = channel.find('ns:id', namespaces).text
+                    name = channel.find('ns:name', namespaces).text
+                    ip_element = channel.find('ns:sourceInputPortDescriptor/ns:ipAddress', namespaces)
+                    ip_addr = ip_element.text if ip_element is not None else 'N/A'
+                    # 入数组
+                    channels.append({
+                        'channel_id': channel_id,
+                        'name': name,
+                        'ip_address': ip_addr
+                    })
+
+                    self.log(f"Parsed Channel - ID: {channel_id}, Name: {name}, IP: {ip_addr}")  # 调试信息
+                self.log("通道信息获取成功")
+                return channels
+            else:
+                error_message = f"API返回异常状态码：{response.status_code}"
+                self.log(error_message)
+                messagebox.showerror("错误", error_message)
+        except Exception as e:
+            error_message = f"连接失败：{str(e)}"
+            self.log(error_message)
+            messagebox.showerror("错误", error_message)
+
+    def config_channel_id(self,lxj_ip,auth):
+        # 获取设备现有通道数量
+        channels = self._fetch_channels(
+            ip=lxj_ip,
+            auth=auth
+        )
+        # 中断弹窗要求用户输入通道起始编号
+        start_channel_id = simpledialog.askinteger(
+            "输入通道起始编号",
+            "请输入通道起始编号：",
+            minvalue=1,
+            maxvalue=9999
+        )
+        if start_channel_id is None:
+            messagebox.showinfo("操作取消", "用户取消了操作")
+            return
+
+        # 发请求配置通道ID
+        channel_url = f"http://{lxj_ip}/ISAPI/System/Network/SIP/1/SIPInfo"
+        try:
+            self.log(f"正在配置设备 {lxj_ip} 的通道ID...")
+            response = requests.get(
+                channel_url,
+                auth=HTTPDigestAuth(*auth),
+                timeout=15,
+                verify=False
+            )
+            if response.status_code != 200:
+                self.log(f"无法获取设备 {lxj_ip} 的通道配置，状态码: {response.status_code}")
+                return
+
+            existing_config = ET.fromstring(response.text)
+            namespace = self.extract_namespace(response.text)
+            ns = {'ns': namespace} if namespace else {}
+            for channel in channels:
+                channel_id = channel['channel_id']
+
+                # 查找现有通道配置
+                existing_channel = existing_config.find(f".//ns:VideoInputList/ns:VideoInput[ns:id='{channel_id}']", namespaces=ns)
+                if existing_channel is not None:
+                    self.log(f"更新通道 {channel_id} 的配置...")
+                    # 通道起始编号自增1,保证通道起始编号始终20位，并以此更新videoInputID
+                    channel_id_str = str(channel_id).zfill(20)  # 确保通道ID为20位
+                    existing_channel.find("ns:videoInputID", namespaces=ns).text = channel_id_str
+                    channel_id += 1  # 自增通道起始编号
+            # 移除命名空间前缀
+            for elem in existing_config.iter():
+                if '}' in elem.tag:
+                    elem.tag = elem.tag.split('}', 1)[1]
+                elem.attrib = {k.split('}', 1)[-1]: v for k, v in elem.attrib.items()}
+            updated_config = ET.tostring(existing_config, encoding='utf-8', method='xml').decode('utf-8')
+            self.log(f"更新后的通道配置XML:\n{updated_config}")
+            headers = {
+                "Content-Type": "application/xml; charset=UTF-8",
+                "User-Agent": "HikConfigTool/3.0"
+            }
+            response = requests.put(
+                channel_url,
+                auth=HTTPDigestAuth(*auth),
+                headers=headers,
+                data=updated_config.encode('utf-8'),
+                timeout=15,
+                verify=False
+            )
+            if response.status_code == 200:
+                self.log(f"✓ 成功配置通道编码: {lxj_ip}")
+                self.config_channel_id(
+                    lxj_ip=lxj_ip,
+                    auth=auth,
+                )
+            else:
+                self.log(f"✗ 配置通道编码失败: {lxj_ip}, 状态码: {response.status_code}")
+                self.log(f"✗ 配置通道编码失败: {lxj_ip}, 信息: {response.text}")
+        except Exception as e:
+            self.log(f"配置通道ID异常: {traceback.format_exc()}")
+            messagebox.showerror("错误", f"配置通道ID异常: {str(e)}")
+
+
+    def configure_platform_access(self, lxj_ip, url, new_device_id, auth, profile, params):
         """配置平台接入 (GB28181)"""
         try:
-            self.log(f"配置设备 {old_ip} 的平台接入...")
-            self.log(f"获取设备 {old_ip} 的现有平台配置...")
+            self.log(f"配置设备 {lxj_ip} 的平台接入...")
+            self.log(f"获取设备 {lxj_ip} 的现有平台配置...")
             response = requests.get(
                 url,
                 auth=HTTPDigestAuth(*auth),
@@ -383,7 +497,7 @@ class GBConfigurator:
                 verify=False
             )
             if response.status_code != 200:
-                self.log(f"无法获取设备 {old_ip} 的现有配置，状态码: {response.status_code}")
+                self.log(f"无法获取设备 {lxj_ip} 的现有配置，状态码: {response.status_code}")
                 return
 
             existing_config = ET.fromstring(response.text)
@@ -436,7 +550,7 @@ class GBConfigurator:
                 "User-Agent": "HikConfigTool/3.0"
             }
 
-            self.log(f"发送SIP更新请求到设备 {old_ip}...")
+            self.log(f"发送SIP更新请求到设备 {lxj_ip}...")
             response = requests.put(
                 url,
                 auth=HTTPDigestAuth(*auth),
@@ -446,10 +560,14 @@ class GBConfigurator:
                 verify=False
             )
             if response.status_code == 200:
-                self.log(f"✓ 成功配置平台接入: {old_ip}")
+                self.log(f"✓ 成功配置平台接入: {lxj_ip}")
+                self.config_channel_id(
+                    lxj_ip=lxj_ip,
+                    auth=auth,
+                )
             else:
-                self.log(f"✗ 配置平台接入失败: {old_ip}, 状态码: {response.status_code}")
-                self.log(f"✗ 配置平台接入失败: {old_ip}, 信息: {response.text}")
+                self.log(f"✗ 配置平台接入失败: {lxj_ip}, 状态码: {response.status_code}")
+                self.log(f"✗ 配置平台接入失败: {lxj_ip}, 信息: {response.text}")
         except Exception as e:
             self.log(f"配置平台接入异常: {traceback.format_exc()}")
 
