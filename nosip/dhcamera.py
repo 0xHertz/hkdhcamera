@@ -81,11 +81,13 @@ class DahuaIPConfigurator:
         ttk.Label(new_ip_frame, text="起始IP:").grid(row=0, column=0, padx=5, sticky=tk.W)
         self.start_ip_entry = ttk.Entry(new_ip_frame)
         self.start_ip_entry.grid(row=0, column=1, padx=5, sticky=tk.EW)
+        self.start_ip_entry.bind("<KeyRelease>", self.update_gateway)
         ttk.Label(new_ip_frame, text="终止IP:").grid(row=0, column=2, padx=5, sticky=tk.W)
         self.end_ip_entry = ttk.Entry(new_ip_frame)
         self.end_ip_entry.grid(row=0, column=3, padx=5, sticky=tk.EW)
         ttk.Label(new_ip_frame, text="子网掩码:").grid(row=1, column=0, padx=5, sticky=tk.W)
         self.subnet_mask_entry = ttk.Entry(new_ip_frame)
+        self.subnet_mask_entry.insert(0,"255.255.255.0")
         self.subnet_mask_entry.grid(row=1, column=1, padx=5, sticky=tk.EW)
         ttk.Label(new_ip_frame, text="网关:").grid(row=1, column=2, padx=5, sticky=tk.W)
         self.gateway_entry = ttk.Entry(new_ip_frame)
@@ -124,6 +126,18 @@ class DahuaIPConfigurator:
     def log(self, message):
         """记录日志"""
         self.log_queue.put(f"[{datetime.now().strftime('%H:%M:%S')}] {message}")
+
+    def update_gateway(self, event=None):
+        """动态更新网关地址为起始IP网段的.1地址"""
+        start_ip = self.start_ip_entry.get().strip()
+        subnet_mask = self.subnet_mask_entry.get().strip()
+        try:
+            network = ipaddress.IPv4Network(f"{start_ip}/{subnet_mask}", strict=False)
+            gateway = str(network.network_address + 1)
+            self.gateway_entry.delete(0, tk.END)
+            self.gateway_entry.insert(0, gateway)
+        except ValueError:
+            self.gateway_entry.delete(0, tk.END)
 
     def validate_inputs(self):
         """验证输入有效性"""

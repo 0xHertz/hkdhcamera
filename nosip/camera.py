@@ -85,11 +85,12 @@ class HikvisionIPConfigurator:
         self.end_ip_entry.grid(row=0, column=3, padx=5, sticky=tk.EW)
         ttk.Label(new_ip_frame, text="子网掩码:").grid(row=1, column=0, padx=5, sticky=tk.W)
         self.subnet_mask_entry = ttk.Entry(new_ip_frame)
+        self.subnet_mask_entry.insert(0,"255.255.255.0")
         self.subnet_mask_entry.grid(row=1, column=1, padx=5, sticky=tk.EW)
         ttk.Label(new_ip_frame, text="网关:").grid(row=1, column=2, padx=5, sticky=tk.W)
         self.gateway_entry = ttk.Entry(new_ip_frame)
-        self.gateway_entry.insert(0,"255.255.255.0")
         self.gateway_entry.grid(row=1, column=3, padx=5, sticky=tk.EW)
+        self.start_ip_entry.bind("<KeyRelease>", self.update_gateway)
         new_ip_frame.columnconfigure(1, weight=1)
         new_ip_frame.columnconfigure(3, weight=1)
 
@@ -124,6 +125,18 @@ class HikvisionIPConfigurator:
     def log(self, message):
         """记录日志"""
         self.log_queue.put(f"[{datetime.now().strftime('%H:%M:%S')}] {message}")
+
+    def update_gateway(self, event=None):
+        """动态更新网关地址为起始IP网段的.1地址"""
+        start_ip = self.start_ip_entry.get().strip()
+        subnet_mask = self.subnet_mask_entry.get().strip()
+        try:
+            network = ipaddress.IPv4Network(f"{start_ip}/{subnet_mask}", strict=False)
+            gateway = str(network.network_address + 1)
+            self.gateway_entry.delete(0, tk.END)
+            self.gateway_entry.insert(0, gateway)
+        except ValueError:
+            self.gateway_entry.delete(0, tk.END)
 
     def validate_inputs(self):
         """验证输入有效性"""
@@ -162,13 +175,8 @@ class HikvisionIPConfigurator:
             return None
 
         # 验证网关有效性
-        try:
-            network = ipaddress.IPv4Network(f"{new_ips[0]}/{subnet_mask}", strict=False)
-            if gateway_obj not in network:
-                messagebox.showerror("网络错误", "网关地址不在新IP所属子网内")
-                return None
-        except ValueError as e:
-            messagebox.showerror("子网错误", f"IP/掩码组合无效: {str(e)}")
+        if gateway not in [str(ip) for ip in ipaddress.IPv4Network(f"{new_ips[0]}/{subnet_mask}", strict=False)]:
+            messagebox.showerror("网络错误", "网关地址不在新IP所属子网内")
             return None
 
         return {
