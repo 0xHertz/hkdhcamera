@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk,messagebox
 from dhcamera import DahuaIPConfigurator
 from dhchannel import DahuaChannelManager
 from channl import HikvisionChannelManager
@@ -11,7 +11,12 @@ class CombinedApp(tk.Tk):
         super().__init__()
         self.title("综合设备管理工具")
         self.geometry("1200x900")
+        self.show_warning()
         self.create_tabs()
+
+    def show_warning(self):
+        """显示启动警告弹窗"""
+        messagebox.showwarning("警告", "第三方工具，风险不可控")
 
     def create_tabs(self):
         notebook = ttk.Notebook(self)

@@ -418,8 +418,11 @@ class GBConfigurator:
             "输入通道起始编号",
             "请输入通道起始编号：",
             minvalue=1,
-            maxvalue=9999
+            parent=self.parent  # 确保指定父窗口
         )
+        fixed_prefix = str(start_channel_id)[:13]
+        current_suffix = int(str(start_channel_id)[13:])
+
         if start_channel_id is None:
             messagebox.showinfo("操作取消", "用户取消了操作")
             return
@@ -449,9 +452,10 @@ class GBConfigurator:
                 if existing_channel is not None:
                     self.log(f"更新通道 {channel_id} 的配置...")
                     # 通道起始编号自增1,保证通道起始编号始终20位，并以此更新videoInputID
-                    channel_id_str = str(channel_id).zfill(20)  # 确保通道ID为20位
+                    channel_id_str = f"{fixed_prefix}{current_suffix:07d}"  # 确保通道ID为20位
                     existing_channel.find("ns:videoInputID", namespaces=ns).text = channel_id_str
-                    channel_id += 1  # 自增通道起始编号
+                    current_suffix += 1  # 自增通道起始编号
+                    self.log(f"配置通道：{channel_id}->{channel_id_str}")
             # 移除命名空间前缀
             for elem in existing_config.iter():
                 if '}' in elem.tag:
@@ -473,10 +477,6 @@ class GBConfigurator:
             )
             if response.status_code == 200:
                 self.log(f"✓ 成功配置通道编码: {lxj_ip}")
-                self.config_channel_id(
-                    lxj_ip=lxj_ip,
-                    auth=auth,
-                )
             else:
                 self.log(f"✗ 配置通道编码失败: {lxj_ip}, 状态码: {response.status_code}")
                 self.log(f"✗ 配置通道编码失败: {lxj_ip}, 信息: {response.text}")
@@ -561,10 +561,7 @@ class GBConfigurator:
             )
             if response.status_code == 200:
                 self.log(f"✓ 成功配置平台接入: {lxj_ip}")
-                self.config_channel_id(
-                    lxj_ip=lxj_ip,
-                    auth=auth,
-                )
+                self.parent.after(0,self.config_channel_id,lxj_ip,auth)
             else:
                 self.log(f"✗ 配置平台接入失败: {lxj_ip}, 状态码: {response.status_code}")
                 self.log(f"✗ 配置平台接入失败: {lxj_ip}, 信息: {response.text}")
