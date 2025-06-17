@@ -119,7 +119,7 @@ class HikvisionChannelManager:
                 response = requests.get(url, auth=HTTPBasicAuth(user, pwd), timeout=10)
 
             if response.status_code == 200:
-                self.log_message("API Response:{response.text}")  # 打印返回的 XML 数据
+                # self.log_message("API Response:{response.text}")  # 打印返回的 XML 数据
                 namespaces = {'ns': 'http://www.hikvision.com/ver20/XMLSchema'}
                 root = ET.fromstring(response.content)
 
@@ -184,7 +184,7 @@ class HikvisionChannelManager:
                     updated_xml = ET.tostring(root, encoding='utf-8', method='xml')
 
                     # 打印调试信息
-                    self.log_message(f"更新通道 {channel_id} 的 XML: {updated_xml.decode('utf-8')}")
+                    # self.log_message(f"更新通道 {channel_id} 的 XML: {updated_xml.decode('utf-8')}")
                     put_response = requests.put(
                         update_url,
                         auth=HTTPDigestAuth(user, pwd),

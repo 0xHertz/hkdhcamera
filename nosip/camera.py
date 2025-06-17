@@ -88,6 +88,7 @@ class HikvisionIPConfigurator:
         self.subnet_mask_entry.grid(row=1, column=1, padx=5, sticky=tk.EW)
         ttk.Label(new_ip_frame, text="网关:").grid(row=1, column=2, padx=5, sticky=tk.W)
         self.gateway_entry = ttk.Entry(new_ip_frame)
+        self.gateway_entry.insert(0,"255.255.255.0")
         self.gateway_entry.grid(row=1, column=3, padx=5, sticky=tk.EW)
         new_ip_frame.columnconfigure(1, weight=1)
         new_ip_frame.columnconfigure(3, weight=1)
@@ -322,7 +323,7 @@ class HikvisionIPConfigurator:
                 elem.attrib = {k.split('}', 1)[-1]: v for k, v in elem.attrib.items()}  # 移除属性中的命名空间
 
             updated_config = ET.tostring(existing_config, encoding='utf-8', method='xml').decode('utf-8')
-            self.log(f"更新后的配置XML:\n{updated_config}")
+            # self.log(f"更新后的配置XML:\n{updated_config}")
 
             self.log(f"发送更新请求到设备 {old_ip}...")
             response = requests.put(
@@ -334,7 +335,7 @@ class HikvisionIPConfigurator:
                 verify=False
             )
 
-            self.log(f"响应状态码: {response.status_code}")
+            # self.log(f"响应状态码: {response.status_code}")
             if response.status_code == 200:
                 self.log(f"✓ 成功配置 {old_ip} → {new_ip}")
                 if self.reboot_var.get():

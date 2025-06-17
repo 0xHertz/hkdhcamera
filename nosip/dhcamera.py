@@ -237,7 +237,7 @@ class DahuaIPConfigurator:
         url = f"http://{ip}{profile['api_path']}"
         config_data = "&".join([f"{key.replace('table.', '')}={value}" for key, value in updated_config.items()])
         url = f"{url}&{config_data}"
-        self.log(f"更新后的请求URL:\n{url}")
+        # self.log(f"更新后的请求URL:\n{url}")
         try:
             self.log(f"发送更新请求到设备 {ip}...")
             response = requests.post(
@@ -246,7 +246,7 @@ class DahuaIPConfigurator:
                 timeout=15,
                 verify=False
             )
-            self.log(f"响应状态码: {response.status_code}")
+            # self.log(f"响应状态码: {response.status_code}")
             if response.status_code == 200 and "OK" in response.text :
                 self.log(f"✓ 成功配置设备 {ip}")
                 # 重启设备（可选）

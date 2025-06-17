@@ -379,7 +379,7 @@ class GBConfigurator:
             response = requests.get(url, auth=HTTPDigestAuth(*auth), timeout=10)
 
             if response.status_code == 200:
-                self.log("API Response:{response.text}")  # 打印返回的 XML 数据
+                # self.log("API Response:{response.text}")  # 打印返回的 XML 数据
                 namespaces = {'ns': 'http://www.hikvision.com/ver20/XMLSchema'}
                 root = ET.fromstring(response.content)
 
@@ -458,7 +458,7 @@ class GBConfigurator:
                     elem.tag = elem.tag.split('}', 1)[1]
                 elem.attrib = {k.split('}', 1)[-1]: v for k, v in elem.attrib.items()}
             updated_config = ET.tostring(existing_config, encoding='utf-8', method='xml').decode('utf-8')
-            self.log(f"更新后的通道配置XML:\n{updated_config}")
+            # self.log(f"更新后的通道配置XML:\n{updated_config}")
             headers = {
                 "Content-Type": "application/xml; charset=UTF-8",
                 "User-Agent": "HikConfigTool/3.0"
@@ -543,7 +543,7 @@ class GBConfigurator:
                 elem.attrib = {k.split('}', 1)[-1]: v for k, v in elem.attrib.items()}  # 移除属性中的命名空间
 
             updated_config = ET.tostring(existing_config, encoding='utf-8', method='xml').decode('utf-8')
-            self.log(f"更新后的SIP配置XML:\n{updated_config}")
+            # self.log(f"更新后的SIP配置XML:\n{updated_config}")
 
             headers = {
                 "Content-Type": "application/xml; charset=UTF-8",

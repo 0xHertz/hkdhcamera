@@ -118,7 +118,7 @@ class DahuaChannelManager:
                 response = requests.get(url, auth=HTTPBasicAuth(user, pwd), timeout=10)
 
             if response.status_code == 200:
-                self.log_message(f"API Response: {response.text}")  # 打印返回的原始数据
+                # self.log_message(f"API Response: {response.text}")  # 打印返回的原始数据
                 try:
                     # 假设返回的是纯文本格式
                     lines = response.text.strip().split('\n')

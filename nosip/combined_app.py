@@ -39,7 +39,7 @@ class CombinedApp(tk.Tk):
 
         # GB Configurator Tab
         gb_config_frame = ttk.Frame(notebook)
-        notebook.add(gb_config_frame, text="海康国标配置")
+        notebook.add(gb_config_frame, text="海康国标&通道编号配置")
         GBConfigurator(gb_config_frame)
 
 if __name__ == "__main__":
