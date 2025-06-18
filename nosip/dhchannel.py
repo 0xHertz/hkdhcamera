@@ -100,6 +100,30 @@ class DahuaChannelManager:
                     new_ip = simpledialog.askstring("输入新IP", "请输入新的IP地址:", initialvalue=old_value)
                     if new_ip is not None:
                         self.tree.set(item, column=col, value=new_ip)
+                        self.auto_fill_new_ips(item, new_ip)
+
+    def auto_fill_new_ips(self, start_item, start_ip):
+        """自动填充后续行的新IP地址"""
+        try:
+            ip_parts = start_ip.split('.')
+            if len(ip_parts) != 4 or not all(part.isdigit() for part in ip_parts):
+                self.log_message("新IP格式无效，无法自动递增填充")
+                return
+
+            base_ip = '.'.join(ip_parts[:3])
+            current_suffix = int(ip_parts[3])
+
+            # 获取所有行并找到起始行的索引
+            items = self.tree.get_children()
+            start_index = items.index(start_item)
+
+            # 从起始行的下一行开始填充
+            for i in range(start_index + 1, len(items)):
+                current_suffix += 1
+                new_ip = f"{base_ip}.{current_suffix}"
+                self.tree.set(items[i], column="#4", value=new_ip)
+        except Exception as e:
+            self.log_message(f"自动填充新IP失败: {str(e)}")
 
     def fetch_channels(self):
         Thread(target=self._fetch_channels, daemon=True).start()
