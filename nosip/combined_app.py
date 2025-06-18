@@ -5,6 +5,7 @@ from dhchannel import DahuaChannelManager
 from channl import HikvisionChannelManager
 from camera import HikvisionIPConfigurator
 from gbconfig import GBConfigurator
+from videoconfig import VideoEncodingConfigurator
 
 class CombinedApp(tk.Tk):
     def __init__(self):
@@ -46,6 +47,11 @@ class CombinedApp(tk.Tk):
         gb_config_frame = ttk.Frame(notebook)
         notebook.add(gb_config_frame, text="海康国标&通道编号配置")
         GBConfigurator(gb_config_frame)
+
+        # Video encoding Configurator Tab
+        gb_config_frame = ttk.Frame(notebook)
+        notebook.add(gb_config_frame, text="视频编码配置")
+        VideoEncodingConfigurator(gb_config_frame)
 
 if __name__ == "__main__":
     app = CombinedApp()

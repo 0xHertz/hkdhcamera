@@ -201,6 +201,9 @@ class HikvisionIPConfigurator:
     def configure_devices(self, params):
         """设备配置主逻辑"""
         try:
+            success_entries = []
+            failure_entries = []
+
             for idx, (old_ip, new_ip) in enumerate(zip(params['old_ips'], params['new_ips'])):
                 self.log(f"\n=== 处理设备 {idx+1}/{len(params['old_ips'])} ===")
                 self.log(f"旧IP: {old_ip} → 新IP: {new_ip}")
@@ -208,6 +211,7 @@ class HikvisionIPConfigurator:
                 # 获取设备版本信息
                 version_info = self.get_device_version(old_ip, params)
                 if not version_info or version_info['device'] == '未知':
+                    failure_entries.append({'ip': old_ip, 'reason': '无法获取设备版本信息'})
                     self.log(f"无法获取设备版本信息，跳过此设备-{old_ip}")
                     continue
 
@@ -218,7 +222,7 @@ class HikvisionIPConfigurator:
                 self.log(f"使用接口: {profile['api_path']}")
 
                 # 发送配置请求
-                self.send_config_request(
+                response = self.send_config_request(
                     old_ip=old_ip,
                     new_ip=new_ip,
                     url=f"http://{old_ip}{profile['api_path']}",
@@ -228,7 +232,20 @@ class HikvisionIPConfigurator:
                     gateway=params['gateway']
                 )
 
+                if response and response.status_code == 200:
+                    success_entries.append({'old_ip': old_ip, 'new_ip': new_ip, 'device': version_info['device'], 'firmware': version_info['firmware']})
+                else:
+                    failure_entries.append({'ip': old_ip, 'reason': f"配置失败，状态码: {response.status_code if response else '无响应'}"})
+
             self.log("\n所有设备处理完成！")
+            self.log(f"配置成功设备数量: {len(success_entries)}")
+            for entry in success_entries:
+                self.log(f"成功: 旧IP={entry['old_ip']}, 新IP={entry['new_ip']}, 设备={entry['device']}, 固件版本={entry['firmware']}")
+
+            self.log(f"配置失败设备数量: {len(failure_entries)}")
+            for entry in failure_entries:
+                self.log(f"失败: IP={entry['ip']}, 原因={entry['reason']}")
+
         except Exception as e:
             self.log(f"全局异常: {traceback.format_exc()}")
         finally:
@@ -307,7 +324,7 @@ class HikvisionIPConfigurator:
 
             if response.status_code != 200:
                 self.log(f"无法获取设备 {old_ip} 的现有配置，状态码: {response.status_code}")
-                return
+                return response
 
             existing_config = ET.fromstring(response.text)
             namespace = self.extract_namespace(response.text)
@@ -350,6 +367,8 @@ class HikvisionIPConfigurator:
                     self.reboot_device(old_ip, auth, profile)
             else:
                 self.log(f"✗ 错误响应内容:\n{response.text}")
+
+            return response
 
         except requests.exceptions.RequestException as e:
             self.log(f"网络请求异常: {str(e)}")
