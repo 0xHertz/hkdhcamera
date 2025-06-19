@@ -63,6 +63,8 @@ class DahuaIPConfigurator:
         old_ips_frame.pack(fill=tk.X, pady=5)
         self.old_ips_text = tk.Text(old_ips_frame, height=12, width=30)
         self.old_ips_text.pack(fill=tk.X)
+        self.clear_btn = ttk.Button(old_ips_frame, text="清空列表", command=self.clear_field)
+        self.clear_btn.pack(side=tk.RIGHT)
 
         # 认证信息
         auth_frame = ttk.LabelFrame(config_frame, text="认证信息")
@@ -194,6 +196,8 @@ class DahuaIPConfigurator:
             'gateway': gateway
         }
 
+    def clear_field(self):
+        self.old_ips_text.delete("1.0", tk.END)  # 正确清空tk.Text小部件的内容
     def start_execution(self):
         """启动配置线程"""
         if params := self.validate_inputs():
