@@ -6,6 +6,7 @@ from channl import HikvisionChannelManager
 from camera import HikvisionIPConfigurator
 from gbconfig import GBConfigurator
 from videoconfig import VideoEncodingConfigurator
+from channlgb import HikvisionGBChannelManager
 
 class CombinedApp(tk.Tk):
     def __init__(self):
@@ -25,13 +26,23 @@ class CombinedApp(tk.Tk):
 
         # Hikvision IP Configurator Tab
         hikvision_ip_frame = ttk.Frame(notebook)
-        notebook.add(hikvision_ip_frame, text="海康摄像头批量配置")
+        notebook.add(hikvision_ip_frame, text="1.海康摄像头批量配置")
         HikvisionIPConfigurator(hikvision_ip_frame)
 
         # Hikvision Channel Manager Tab
         hikvision_channel_frame = ttk.Frame(notebook)
-        notebook.add(hikvision_channel_frame, text="海康设备通道管理")
+        notebook.add(hikvision_channel_frame, text="2.海康设备通道管理")
         HikvisionChannelManager(hikvision_channel_frame)
+
+        # Hikvision Channel Manager Tab
+        hikvision_channel_frame = ttk.Frame(notebook)
+        notebook.add(hikvision_channel_frame, text="3.海康国标配置")
+        HikvisionGBChannelManager(hikvision_channel_frame)
+
+        # GB Configurator Tab
+        gb_config_frame = ttk.Frame(notebook)
+        notebook.add(gb_config_frame, text="4.海康国标批量号配置")
+        GBConfigurator(gb_config_frame)
 
         # Dahua IP Configurator Tab
         dahua_ip_frame = ttk.Frame(notebook)
@@ -42,11 +53,6 @@ class CombinedApp(tk.Tk):
         dahua_channel_frame = ttk.Frame(notebook)
         notebook.add(dahua_channel_frame, text="大华设备通道管理")
         DahuaChannelManager(dahua_channel_frame)
-
-        # GB Configurator Tab
-        gb_config_frame = ttk.Frame(notebook)
-        notebook.add(gb_config_frame, text="海康国标&通道编号配置")
-        GBConfigurator(gb_config_frame)
 
         # Video encoding Configurator Tab
         gb_config_frame = ttk.Frame(notebook)
