@@ -88,7 +88,7 @@ class GBConfigurator:
         self.username_entry = ttk.Entry(auth_frame)
         self.username_entry.grid(row=0, column=1, padx=5, sticky=tk.EW)
         ttk.Label(auth_frame, text="密码:").grid(row=1, column=0, padx=5, sticky=tk.W)
-        self.password_entry = ttk.Entry(auth_frame, show="*")
+        self.password_entry = ttk.Entry(auth_frame)
         self.password_entry.grid(row=1, column=1, padx=5, sticky=tk.EW)
         auth_frame.columnconfigure(1, weight=1)
 

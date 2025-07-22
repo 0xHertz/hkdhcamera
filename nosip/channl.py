@@ -33,7 +33,7 @@ class HikvisionChannelManager:
         self.username.grid(row=1, column=1, padx=5, pady=5)
 
         ttk.Label(device_info_frame, text="密码:").grid(row=2, column=0, padx=5, pady=5, sticky="e")
-        self.password = ttk.Entry(device_info_frame, show="*", width=20)
+        self.password = ttk.Entry(device_info_frame, width=20)
         self.password.grid(row=2, column=1, padx=5, pady=5)
 
         # 功能按钮
@@ -112,10 +112,9 @@ class HikvisionChannelManager:
             start_index = items.index(start_item)
             if len(ip_parts) != 4 or not all(part.isdigit() for part in ip_parts):
                 self.log_message("新IP格式无效，无法自动递增填充")
-                return
-            if start_ip == '':
-                for i in range(start_index + 1, len(items)):
-                    self.tree.set(items[i], column="#4", value='')
+                if start_ip == '':
+                    for i in range(start_index + 1, len(items)):
+                        self.tree.set(items[i], column="#4", value='')
                 return
 
             base_ip = '.'.join(ip_parts[:3])

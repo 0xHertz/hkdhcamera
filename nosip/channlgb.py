@@ -94,7 +94,7 @@ class HikvisionGBChannelManager:
         self.username.grid(row=1, column=1, padx=5, pady=5)
 
         ttk.Label(device_info_frame, text="密码:").grid(row=2, column=0, padx=5, pady=5, sticky="e")
-        self.password = ttk.Entry(device_info_frame, show="*", width=20)
+        self.password = ttk.Entry(device_info_frame, width=20)
         self.password.grid(row=2, column=1, padx=5, pady=5)
 
         # 功能按钮
