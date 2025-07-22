@@ -106,16 +106,19 @@ class DahuaChannelManager:
         """自动填充后续行的新IP地址"""
         try:
             ip_parts = start_ip.split('.')
+            # 获取所有行并找到起始行的索引
+            items = self.tree.get_children()
+            start_index = items.index(start_item)
             if len(ip_parts) != 4 or not all(part.isdigit() for part in ip_parts):
                 self.log_message("新IP格式无效，无法自动递增填充")
+                return
+            if start_ip == '':
+                for i in range(start_index + 1, len(items)):
+                    self.tree.set(items[i], column="#4", value='')
                 return
 
             base_ip = '.'.join(ip_parts[:3])
             current_suffix = int(ip_parts[3])
-
-            # 获取所有行并找到起始行的索引
-            items = self.tree.get_children()
-            start_index = items.index(start_item)
 
             # 从起始行的下一行开始填充
             for i in range(start_index + 1, len(items)):
