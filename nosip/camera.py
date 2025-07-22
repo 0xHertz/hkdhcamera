@@ -74,6 +74,12 @@ class HikvisionIPConfigurator:
         ttk.Label(auth_frame, text="密码:").grid(row=1, column=0, padx=5, sticky=tk.W)
         self.password_entry = ttk.Entry(auth_frame, show="*")
         self.password_entry.grid(row=1, column=1, padx=5, sticky=tk.EW)
+        ttk.Label(auth_frame, text="密码前缀长度:").grid(row=2, column=0, padx=5, sticky=tk.W)
+        self.password_pre_len = ttk.Entry(auth_frame)
+        self.password_pre_len.grid(row=2, column=1, padx=5, sticky=tk.EW)
+        self.increase = tk.BooleanVar(value=True)
+        self.increase_check = ttk.Checkbutton(auth_frame, text='密码递增', variable=self.increase)
+        self.increase_check.grid(row=3, column=1, padx=5, sticky=tk.EW)
         auth_frame.columnconfigure(1, weight=1)
 
         # 新IP配置
@@ -145,6 +151,7 @@ class HikvisionIPConfigurator:
         old_ips = self.old_ips_text.get("1.0", tk.END).strip().splitlines()
         username = self.username_entry.get().strip()
         password = self.password_entry.get().strip()
+        pass_pre_len = int(self.password_pre_len.get())
         start_ip = self.start_ip_entry.get().strip()
         end_ip = self.end_ip_entry.get().strip()
         subnet_mask = self.subnet_mask_entry.get().strip()
@@ -176,6 +183,19 @@ class HikvisionIPConfigurator:
             messagebox.showerror("范围错误", "新IP范围不足以覆盖所有旧IP")
             return None
 
+        # 生成新密码范围
+        new_pass = []
+        current_pass = password
+        if self.increase:
+            fixed_prefix = password[:pass_pre_len]
+            current_suffix = int(password[pass_pre_len:])
+            while len(new_pass) < len(new_ips):
+                current_pass = f"{fixed_prefix}{current_suffix}"
+                new_pass.append(current_pass)
+                current_suffix += 1
+        else:
+            new_pass = [password] * len(new_ips)
+
         # 验证网关有效性
         if gateway not in [str(ip) for ip in ipaddress.IPv4Network(f"{new_ips[0]}/{subnet_mask}", strict=False)]:
             messagebox.showerror("网络错误", "网关地址不在新IP所属子网内")
@@ -185,7 +205,7 @@ class HikvisionIPConfigurator:
             'old_ips': old_ips,
             'new_ips': new_ips,
             'username': username,
-            'password': password,
+            'new_pass': new_pass,
             'subnet_mask': subnet_mask,
             'gateway': gateway
         }
@@ -207,12 +227,12 @@ class HikvisionIPConfigurator:
             success_entries = []
             failure_entries = []
 
-            for idx, (old_ip, new_ip) in enumerate(zip(params['old_ips'], params['new_ips'])):
+            for idx, (old_ip, new_ip, password) in enumerate(zip(params['old_ips'], params['new_ips'], params['new_pass'])):
                 self.log(f"\n=== 处理设备 {idx+1}/{len(params['old_ips'])} ===")
                 self.log(f"旧IP: {old_ip} → 新IP: {new_ip}")
 
                 # 获取设备版本信息
-                version_info = self.get_device_version(old_ip, params)
+                version_info = self.get_device_version(old_ip, params,password)
                 if not version_info or version_info['device'] == '未知':
                     failure_entries.append({'ip': old_ip, 'reason': '无法获取设备版本信息'})
                     self.log(f"无法获取设备版本信息，跳过此设备-{old_ip}")
@@ -229,7 +249,7 @@ class HikvisionIPConfigurator:
                     old_ip=old_ip,
                     new_ip=new_ip,
                     url=f"http://{old_ip}{profile['api_path']}",
-                    auth=(params['username'], params['password']),
+                    auth=(params['username'], password),
                     profile=profile,
                     subnet_mask=params['subnet_mask'],
                     gateway=params['gateway']
@@ -254,7 +274,7 @@ class HikvisionIPConfigurator:
         finally:
             self.execute_btn.config(state=tk.NORMAL)
 
-    def get_device_version(self, ip, params):
+    def get_device_version(self, ip, params,password):
         version_urls = [
             f"http://{ip}/ISAPI/System/version",
             f"https://{ip}/ISAPI/System/version",
@@ -265,7 +285,7 @@ class HikvisionIPConfigurator:
             try:
                 response = requests.get(
                     url,
-                    auth=HTTPDigestAuth(params['username'], params['password']),
+                    auth=HTTPDigestAuth(params['username'], password),
                     timeout=10,
                     verify=False
                 )
