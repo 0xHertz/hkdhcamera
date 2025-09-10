@@ -1,0 +1,42 @@
+<InputProxyChannelList version="2.0" xmlns="http://www.isapi.org/ver20/XMLSchema" size="5">
+<InputProxyChannel>
+<id>11</id>
+<name>石泉县站托取厅外[球机]</name>
+<sourceInputPortDescriptor>
+<proxyProtocol>ONVIF</proxyProtocol>
+<addressingFormatType>ipaddress</addressingFormatType>
+<ipAddress>172.18.65.36</ipAddress>
+<managePortNo>80</managePortNo>
+<srcInputPort>1</srcInputPort>
+<userName>admin</userName>
+<streamType>auto</streamType>
+<model>DH-SD-6C3240UB-HNI</model>
+<serialNumber>5E09A05PANC9836</serialNumber>
+<firmwareVersion>2.623.0000000.17.R, Build Date 2019-01-19</firmwareVersion>
+<deviceID></deviceID>
+</sourceInputPortDescriptor>
+<certificateValidationEnabled>false</certificateValidationEnabled>
+<defaultAdminPortEnabled>false</defaultAdminPortEnabled>
+<enableTiming>true</enableTiming>
+</InputProxyChannel>
+<InputProxyChannel>
+<id>12</id>
+<name>石泉县安全门后[定焦枪机]</name>
+<sourceInputPortDescriptor>
+<proxyProtocol>ONVIF</proxyProtocol>
+<addressingFormatType>ipaddress</addressingFormatType>
+<ipAddress>172.18.65.37</ipAddress>
+<managePortNo>80</managePortNo>
+<srcInputPort>1</srcInputPort>
+<userName>admin</userName>
+<streamType>auto</streamType>
+<model>IPC-HFW3230F-VF</model>
+<serialNumber>5C04C79PAG5C0B0</serialNumber>
+<firmwareVersion>2.680.0000000.2.R, Build Date 2019-04-10</firmwareVersion>
+<deviceID></deviceID>
+</sourceInputPortDescriptor>
+<certificateValidationEnabled>false</certificateValidationEnabled>
+<defaultAdminPortEnabled>false</defaultAdminPortEnabled>
+<enableTiming>true</enableTiming>
+</InputProxyChannel>
+</InputProxyChannelList>

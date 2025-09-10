@@ -425,6 +425,16 @@ class HikvisionGBChannelManager:
     def fetch_channels(self):
         Thread(target=self._fetch_channels, daemon=True).start()
 
+    def findall_with_ns(root, tagname):
+        import re
+        m = re.match(r'\{(.*)\}', root.tag)
+        if m:  # 有命名空间
+            ns = {'ns': m.group(1)}
+            return root.findall(f'.//ns:{tagname}', ns)
+        else:  # 没有命名空间
+            return root.findall(f'.//{tagname}')
+
+
     def _fetch_channels(self):
         try:
             ip = self.device_ip.get()
@@ -443,8 +453,10 @@ class HikvisionGBChannelManager:
                 namespaces = {'ns': 'http://www.hikvision.com/ver20/XMLSchema'}
                 root = ET.fromstring(response.content)
 
+                channels = self.findall_with_ns(root, 'InputProxyChannel')
+
                 self.tree.delete(*self.tree.get_children())
-                for channel in root.findall('.//ns:InputProxyChannel', namespaces):
+                for channel in channels:
                     channel_id = channel.find('ns:id', namespaces).text
                     name = channel.find('ns:name', namespaces).text
                     ip_element = channel.find('ns:sourceInputPortDescriptor/ns:ipAddress', namespaces)

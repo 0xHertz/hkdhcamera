@@ -374,6 +374,16 @@ class GBConfigurator:
             pass
         return None
 
+    def findall_with_ns(root, tagname):
+        import re
+        m = re.match(r'\{(.*)\}', root.tag)
+        if m:  # 有命名空间
+            ns = {'ns': m.group(1)}
+            return root.findall(f'.//ns:{tagname}', ns)
+        else:  # 没有命名空间
+            return root.findall(f'.//{tagname}')
+
+
     def _fetch_channels(self,ip,auth):
         try:
 
@@ -386,8 +396,9 @@ class GBConfigurator:
                 # self.log("API Response:{response.text}")  # 打印返回的 XML 数据
                 namespaces = {'ns': 'http://www.hikvision.com/ver20/XMLSchema'}
                 root = ET.fromstring(response.content)
+                channels = self.findall_with_ns(root, 'InputProxyChannel')
 
-                for channel in root.findall('.//ns:InputProxyChannel', namespaces):
+                for channel in channels:
                     channel_id = channel.find('ns:id', namespaces).text
                     name = channel.find('ns:name', namespaces).text
                     ip_element = channel.find('ns:sourceInputPortDescriptor/ns:ipAddress', namespaces)
