@@ -131,12 +131,12 @@ class HikvisionChannelManager:
     def fetch_channels(self):
         Thread(target=self._fetch_channels, daemon=True).start()
 
-    def findall_with_ns(root, tagname):
+    def findall_with_ns(self, root, tagname):
         import re
         m = re.match(r'\{(.*)\}', root.tag)
         if m:  # 有命名空间
             ns = {'ns': m.group(1)}
-            return root.findall(f'.//ns:{tagname}', ns)
+            return [root.findall(f'.//ns:{tagname}', ns),ns]
         else:  # 没有命名空间
             return root.findall(f'.//{tagname}')
 
@@ -154,13 +154,13 @@ class HikvisionChannelManager:
                 response = requests.get(url, auth=HTTPBasicAuth(user, pwd), timeout=10)
 
             if response.status_code == 200:
-                namespaces = {'ns': 'http://www.hikvision.com/ver20/XMLSchema'}
                 root = ET.fromstring(response.content)
-                channels = self.findall_with_ns(root, 'InputProxyChannel')
+                result = self.findall_with_ns(root, 'InputProxyChannel')
+                old_channels = result[0]
+                namespaces = result[1]
 
                 self.tree.delete(*self.tree.get_children())
-                for channel in channels:
-                    self.log_message(channel)
+                for channel in old_channels:
                     channel_id = channel.find('ns:id', namespaces).text
                     name = channel.find('ns:name', namespaces).text
                     ip_element = channel.find('ns:sourceInputPortDescriptor/ns:ipAddress', namespaces)
