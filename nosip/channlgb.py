@@ -103,8 +103,8 @@ class HikvisionGBChannelManager:
         button_frame = ttk.Frame(top_frame)
         button_frame.pack(side=tk.RIGHT, padx=10)
 
-        ttk.Button(button_frame, text="配置录像机国标", command=self.config_gb, width=15).pack(pady=5)
         ttk.Button(button_frame, text="获取通道信息", command=self.fetch_channels, width=15).pack(pady=5)
+        ttk.Button(button_frame, text="配置录像机国标", command=self.config_gb, width=15).pack(pady=5)
         ttk.Button(button_frame, text="更新通道编号", command=self.update_ips, width=15).pack(pady=5)
 
         # 平台接入配置
@@ -431,6 +431,7 @@ class HikvisionGBChannelManager:
         if m:  # 有命名空间
             ns = {'ns': m.group(1)}
             return [root.findall(f'.//ns:{tagname}', ns),ns]
+        else:  # 没有命名空间
             return root.findall(f'.//{tagname}')
 
 
@@ -487,7 +488,7 @@ class HikvisionGBChannelManager:
                 values = self.tree.item(item)['values']
                 if len(values) >= 4 and values[3]:  # 检查新IP是否为空
                     channel_id = values[0]
-                    new_channel_id = values[3]
+                    new_channel_id = str(values[3])
 
                     # 发请求配置通道ID
                     channel_url = f"http://{ip}/ISAPI/System/Network/SIP/1/SIPInfo"
