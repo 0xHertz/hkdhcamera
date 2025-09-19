@@ -213,7 +213,7 @@ class HikvisionGBChannelManager:
                     values = self.tree.item(item, "values")
                     old_value = values[3] if len(values) > 3 else ""
                     start_channel_id = simpledialog.askstring("输入通道编码", "请输入通道编码:", initialvalue=old_value)
-                    if len(start_channel_id) == 20:
+                    if start_channel_id is not None:
                         self.tree.set(item, column=col, value=start_channel_id)
                         self.auto_fill_new_ips(item, start_channel_id)
 
@@ -223,9 +223,10 @@ class HikvisionGBChannelManager:
             # 获取所有行并找到起始行的索引
             items = self.tree.get_children()
             start_index = items.index(start_item)
-            if start_channel_id == '':
-                for i in range(start_index + 1, len(items)):
-                    self.tree.set(items[i], column="#4", value='')
+            if len(start_channel_id) != 20:
+                if start_channel_id == '':
+                    for i in range(start_index + 1, len(items)):
+                        self.tree.set(items[i], column="#4", value='')
                 return
 
             fixed_prefix = str(start_channel_id)[:13]
